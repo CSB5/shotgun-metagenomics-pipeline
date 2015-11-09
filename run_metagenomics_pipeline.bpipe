@@ -1,0 +1,4 @@
+load '/mnt/projects/lich/dream_challenge/metagenomics_pipeline/metagenomics_pipeline.bpipe'
+//run { metaphlan }
+run { "Sample_%" * [ set_global_var + merge_fastq + trim_famas + decont +  [metaphlan + split_tables,kraken +split_tables]  ]  + 
+      "decont.%" * [ merge_tables] }

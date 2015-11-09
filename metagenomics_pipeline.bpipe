@@ -1,0 +1,135 @@
+//load "$CONFIG"
+
+// Default tools
+BWA = '/mnt/software/stow/bwa-0.7.10/bin/bwa'
+FAMAS = 'famas'
+// Default databases
+METAPHLAN_BTDB = "/mnt/genomeDB/misc/softwareDB/metaphlan/huttenhower.sph.harvard.edu/metaphlan/bowtie2db/mpa"
+KRAKEN_DB = "/mnt/genomeDB/misc/softwareDB/kraken/minikraken_20141208/"
+// Default parameters
+T_DECONT = 8
+T_METAPHLAN = 8
+T_KRAKEN = 8
+
+set_global_var = {
+  doc title: "Set global branch variables"
+  branch.PREFIX = branch.name
+}
+
+merge_fastq = {
+  doc title: "Combine fastq files in one folder into one."
+  output.dir = "merged_fastqs"
+  produce("${PREFIX}.R1.fastq.gz", "${PREFIX}.R2.fastq.gz"){
+    multi "cat `ls $input/*R1*gz | sort` > $output1",
+          "cat `ls $input/*R2*gz | sort` > $output2"
+  }
+}
+
+trim_famas = {
+  doc title: "Trim the fastq files."
+  output.dir = "trimmed_fastqs"
+  produce("${PREFIX}.trimmed.R1.fastq.gz", "${PREFIX}.trimmed.R2.fastq.gz"){
+    exec """
+      $FAMAS -i $input1 -j $input2 
+             -o $output1 -p $output2
+    ""","trim"
+  }
+}
+
+DECONT_GENOME = '/mnt/genomeDB/genomeIndices/hg19/bwa_index/nucleotide/hg19.fa'
+decont = {
+  doc title: "Decontamination against a genome"
+  output.dir = "decont_fastqs"
+  produce("${PREFIX}.trimmed.decont_1.fastq.gz",
+	  "${PREFIX}.trimmed.decont_2.fastq.gz",
+	  "${PREFIX}.trimmed.decont.bam"){
+    exec """
+      decont.py -i $input1 $input2
+        -t $T_DECONT
+        -r $DECONT_GENOME
+        -o decont_fastqs/${PREFIX}.trimmed.decont
+        -b $BWA
+    """
+  }
+}
+
+metaphlan = {
+  doc title: "Run metaphlan"
+  output.dir = "metaphlan_profile"
+  produce("metaphlan_profile/${PREFIX}.trimmed.decont.metaphlan.tsv",
+	  "metaphlan_profile/${PREFIX}.trimmed.decont.bt2.txt",
+	  "metaphlan_profile/${PREFIX}.trimmed.decont.metaphlan.map"){
+    exec """
+      zcat $input1.gz $input2.gz | 
+      metaphlan.py  
+        --input_type multifastq 
+        --nproc $T_METAPHLAN
+        --bowtie2db $METAPHLAN_BTDB 
+        --bowtie2out $output2.txt
+        -o $output1.tsv
+    ""","metaphlan"
+    exec """
+      metaphlan.py  metaphlan_profile/${PREFIX}.trimmed.decont.bt2.txt
+         --input_type bowtie2out 
+         --nproc 2
+         -t reads_map
+         -o $output3.map
+    """
+  }
+}
+
+kraken = {
+  doc title: "Run KRAKEN"
+  output.dir = "kraken_profile"
+  produce("${PREFIX}.trimmed.decont.kraken.out",
+	  "${PREFIX}.trimmed.decont.kraken.map",
+	  "${PREFIX}.trimmed.decont.kraken.tsv"){
+    exec """
+       kraken 
+         --preload 
+         --db $KRAKEN_DB 
+         --paired 
+         --threads $T_KRAKEN
+         $input1.gz $input2.gz
+         > $output1.out
+    ""","kraken"
+    exec """
+       kraken-translate --db $KRAKEN_DB
+       --mpa-format
+       $output1.out
+       > $output2.map  
+    """
+    exec """
+       kraken-mpa-report --db $KRAKEN_DB
+       $output1.out
+       > $output3.tsv
+    """
+  }
+}
+
+split_tables = {
+  doc title: "Split the tables according taxa"
+  branch.file_prefix = "$input1.tsv.prefix".split("/").last()
+  branch.table_method = "$file_prefix".split("\\.").last()
+  output.dir = "split_table_$table_method"
+  produce("${file_prefix}.table.*"){
+    exec """
+       ~lich/scripts/split_metaphlan_table.sh $input.tsv  split_table_$table_method/$file_prefix
+    """
+  }
+}
+
+merge_tables = {
+  doc title: "Merge profiler's tables"
+  branch.taxa = "$input1".split("\\.").last()
+  branch.table_method = "$input1.prefix.prefix".split("\\.").last()
+  output.dir = "merged_table_$table_method"
+  produce("${taxa}.${table_method}.profile_merged.tsv"){
+    exec """
+       ~lich/scripts/misc-scripts/merge_tables.py 
+          -p '[A-Z]+[0-9]+'  
+          $inputs 
+          -o $output
+    """
+  }
+}
