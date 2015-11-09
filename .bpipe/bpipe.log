@@ -1,0 +1,5 @@
+bpipe.Runner	[1]	INFO	|7:06:08 Starting 
+bpipe.Runner	[1]	INFO	|7:06:08 OS: Linux (2.6.32-279.el6.x86_64) Java: 1.7.0_45 Vendor: Oracle Corporation 
+bpipe.Runner	[1]	INFO	|7:06:08 Initializing plugins ... 
+bpipe.Config	[1]	INFO	|7:06:08 No plugins directory found: /mnt/projects/lich/dream_challenge/metagenomics_pipeline/metagenomics_pipeline/.bpipe/plugins 
+bpipe.Runner	[9]	INFO	|7:06:08 Deleting job file /home/lich/.bpipedb/jobs/136266 
