@@ -7,10 +7,10 @@ This pipeline is based on Bpipe (https://github.com/ssadedin/bpipe), and is now 
 Requirements:
 -----------
  * Bpipe 0.9.9 beta 1 (sge_fixes branch)
- * MetaPhlAn 1.7.7
- * Kraken 0.10.5 beta
- * BWA 0.7.10
- * famas 0.0.10
+ * MetaPhlAn 1.7.7 (http://huttenhower.sph.harvard.edu/metaphlan)
+ * Kraken 0.10.5 beta (https://ccb.jhu.edu/software/kraken/)
+ * BWA 0.7.10 (http://bio-bwa.sourceforge.net/)
+ * famas 0.0.10 (https://github.com/andreas-wilm/famas.git)
  * Customized scipts:
   - split_metaphlan_table.sh
   - merge_tables.py (CSB5/misc_scripts/merge_tables.py)
