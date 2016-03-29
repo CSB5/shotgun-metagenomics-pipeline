@@ -15,6 +15,7 @@ Requirements:
   - split_metaphlan_table.sh
   - merge_tables.py (CSB5/misc_scripts/merge_tables.py)
   - decont.py (CSB5/decont)
+
 Usage:
 ----------
 ```
