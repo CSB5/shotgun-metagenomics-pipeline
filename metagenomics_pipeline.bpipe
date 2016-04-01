@@ -3,8 +3,11 @@
 // Default tools
 BWA = '/mnt/software/stow/bwa-0.7.10/bin/bwa'
 FAMAS = 'famas'
+METAPHLAN2 = '/mnt/projects/lich/dream_challenge/tmp/biobakery-metaphlan2-3d22a72b109b/metaphlan2.py'
 // Default databases
 METAPHLAN_BTDB = "/mnt/genomeDB/misc/softwareDB/metaphlan/huttenhower.sph.harvard.edu/metaphlan/bowtie2db/mpa"
+METAPHLAN2_PKL = "/mnt/projects/lich/dream_challenge/tmp/biobakery-metaphlan2-3d22a72b109b/db_v20/mpa_v20_m200.pkl"
+METAPHLAN2_DB = "/mnt/projects/lich/dream_challenge/tmp/biobakery-metaphlan2-3d22a72b109b/db_v20/mpa_v20_m200"
 KRAKEN_DB = "/mnt/genomeDB/misc/softwareDB/kraken/minikraken_20141208/"
 // Default parameters
 T_DECONT = 8
@@ -75,6 +78,23 @@ metaphlan = {
          -t reads_map
          -o $output3.map
     """
+  }
+}
+
+metaphlan2 = {
+  doc title: "Run metaphlan2"
+  output.dir = "metaphlan2_profile"
+  produce("metaphlan2_profile/${PREFIX}.trimmed.decont.metaphlan2.tsv",
+	  "metaphlan2_profile/${PREFIX}.trimmed.decont.bt2.bz2"){
+    exec """
+      $METAPHLAN2 $input1,$input2 
+         --mpa_pkl $METAPHLAN2_PKL 
+         --bowtie2db $METAPHLAN2_DB 
+         --bowtie2out $output2.bz2 
+         --nproc $T_METAPHLAN
+         --input_type fastq 
+         > $output1.tsv
+    ""","metaphlan"
   }
 }
 
