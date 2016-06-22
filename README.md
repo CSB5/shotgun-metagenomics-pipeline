@@ -6,7 +6,7 @@ This pipeline is based on Bpipe (https://github.com/ssadedin/bpipe), and is now 
 (pair-end) shotgun metagenomics samples.
 Requirements:
 -----------
- * Bpipe 0.9.9 beta 1 (sge_fixes branch)
+ * Bpipe 0.9.9 beta 1 (sge_fixes branch) or Snakemake 3.7.1
  * MetaPhlAn 1.7.7 (http://huttenhower.sph.harvard.edu/metaphlan)
  * Kraken 0.10.5 beta (https://ccb.jhu.edu/software/kraken/)
  * BWA 0.7.10 (http://bio-bwa.sourceforge.net/)
@@ -18,7 +18,13 @@ Requirements:
 
 Usage:
 ----------
+ * Using bpipe
 ```
 $ bpipe test -n200 run_metagenomics_pipeline.bpipe Sample_Folder1 <Sample_Folder2 Sample_Folder3 ...>
 $ bpipe run -n200 run_metagenomics_pipeline.bpipe Sample_Folder1 <Sample_Folder2 Sample_Folder3 ...>
+```
+ * Using snakemake
+```
+$ snakemake_pipeline/create_config.sh FILE [FILE2 FILE3 ...]
+$ snakemake_pipeline/run_pipeline.sh 
 ```
