@@ -1,0 +1,195 @@
+# shell environment used for each job
+# note, this is a naked shell, not aware of your bashrc!
+shell.executable("/bin/bash")
+# unofficial bash strict mode
+shell.prefix("set -euo pipefail;")# don't forget trailing semicolon
+
+# snakemake depends on py3k
+# either use /mnt/software/unstowable/anaconda3 + env or
+# /mnt/projects/rpd/apps.testing/miniconda3/envs/snakemake-3.7.1/bin/snakemake
+#
+# SM=/mnt/projects/rpd/apps.testing/miniconda3/envs/snakemake-3.7.1/bin/snakemake
+# $SM --dryrun --configfile conf.yaml -p -T  
+# later: -j 10 --drmaa ' -pe OpenMP {threads} -l ...'
+
+import os
+import glob
+
+## generate a config file using script "create_config.sh"
+configfile: "conf.yaml"
+## profilers to run
+methods=['kraken', 'metaphlan', 'metaphlan2']
+
+########### tools & DBs: ########
+## Default tools
+FAMAS = 'famas'
+BWA = '/mnt/software/stow/bwa-0.7.10/bin/bwa'
+METAPHLAN2 = '/mnt/projects/lich/dream_challenge/tmp/biobakery-metaphlan2-3d22a72b109b/metaphlan2.py'
+
+## Default databases
+DECONT_GENOME = '/mnt/genomeDB/genomeIndices/hg19/bwa_index/nucleotide/hg19.fa'
+METAPHLAN_BTDB = "/mnt/genomeDB/misc/softwareDB/metaphlan/huttenhower.sph.harvard.edu/metaphlan/bowtie2db/mpa"
+METAPHLAN2_PKL = "/mnt/projects/lich/dream_challenge/tmp/biobakery-metaphlan2-3d22a72b109b/db_v20/mpa_v20_m200.pkl"
+METAPHLAN2_DB = "/mnt/projects/lich/dream_challenge/tmp/biobakery-metaphlan2-3d22a72b109b/db_v20/mpa_v20_m200"
+KRAKEN_DB = "/mnt/genomeDB/misc/softwareDB/kraken/minikraken_20141208/"
+#################################
+
+assert 'SAMPLES' in config
+
+rule final:
+    input:"pipeline.SUCCESS"
+
+def get_dir_for_prefix(wildcards):
+	return config['SAMPLES'][wildcards.prefix]
+     
+
+rule merge_fastq_r1:
+    input: get_dir_for_prefix
+    output:
+     	"merged_fastqs/{prefix}_R1.fastq.gz"
+    message: "Merging fastq (R1) per sample dir [{wildcards.prefix}]"
+    threads: 1
+    params: resource="h_rt=4:00:00,mem_free=5G"
+    shell:
+        "cat `ls {input}/*R1*gz | sort` > {output}"
+
+rule merge_fastq_r2:
+    input: get_dir_for_prefix
+    output:
+     	"merged_fastqs/{prefix}_R2.fastq.gz"
+    message: "Merging fastq (R2) per sample dir [{wildcards.prefix}]"
+    threads: 1
+    params: resource="h_rt=4:00:00,mem_free=5G"
+    shell:
+        "cat `ls {input}/*R2*gz | sort` > {output}"
+
+rule trimming:
+    input:
+        r1="merged_fastqs/{prefix}_R1.fastq.gz",
+        r2="merged_fastqs/{prefix}_R2.fastq.gz"
+    output:
+        r1="trimmed_fastqs/{prefix}.trimmed.R1.fastq.gz",
+        r2="trimmed_fastqs/{prefix}.trimmed.R2.fastq.gz"
+    threads: 1
+    params: resource="h_rt=48:00:00,mem_free=10G"
+    message: "Trimming fastq files [{wildcards.prefix}]"
+    shell: "{FAMAS} -i {input.r1} -j  {input.r2} -o {output.r1} -p {output.r2}"
+
+rule decont:
+    input:
+        r1="trimmed_fastqs/{prefix}.trimmed.R1.fastq.gz",
+        r2="trimmed_fastqs/{prefix}.trimmed.R2.fastq.gz"
+    output:
+        r1="decont_fastqs/{prefix}.trimmed.decont_1.fastq.gz",
+        r2="decont_fastqs/{prefix}.trimmed.decont_2.fastq.gz"
+    message: "Running decont on [{wildcards.prefix}]"
+    threads: 8
+    params: resource="h_rt=48:00:00,mem_free=15G"
+    shell:
+        "decont.py -i {input.r1} {input.r2} "
+        "  -t {threads} " 
+        "  -r {DECONT_GENOME} "
+        "  -o decont_fastqs/{wildcards.prefix}.trimmed.decont "
+        "  -b {BWA} "
+
+rule kraken:
+    input:
+        r1="decont_fastqs/{prefix}.trimmed.decont_1.fastq.gz",
+        r2="decont_fastqs/{prefix}.trimmed.decont_2.fastq.gz"
+    output:
+        tsv="kraken_profile/{prefix}.trimmed.decont.kraken.tsv",
+        out="kraken_profile/{prefix}.trimmed.decont.kraken.out"
+    message: "Running Kraken [{wildcards.prefix}]"
+    threads: 8
+    params: resource="h_rt=48:00:00,mem_free=20G"
+    shell:
+        "kraken "
+        "  --preload "
+        "  --db {KRAKEN_DB} "
+        "  --paired "      
+        "  --threads {threads} "
+        "  {input.r1} {input.r2} "
+        "  > {output.out}; "   
+        "kraken-translate --db {KRAKEN_DB} "
+        "  --mpa-format "
+        "  {output.out} "
+        "  > kraken_profile/{wildcards.prefix}.trimmed.decont.kraken.map; "
+        "kraken-mpa-report --db {KRAKEN_DB} "
+        "  {output.out} "
+        "  > {output.tsv}  "
+
+rule metaphlan:
+    input:
+        r1="decont_fastqs/{prefix}.trimmed.decont_1.fastq.gz",
+        r2="decont_fastqs/{prefix}.trimmed.decont_2.fastq.gz"
+    output:
+        tsv="metaphlan_profile/{prefix}.trimmed.decont.metaphlan.tsv",
+        mapfile="metaphlan_profile/{prefix}.trimmed.decont.metaphlan.map"
+    message: "Running Metaphlan [{wildcards.prefix}]"
+    threads: 8
+    params: resource="h_rt=48:00:00,mem_free=10G"
+    shell:
+        "zcat {input.r1} {input.r2} | "
+        "  metaphlan.py "
+        "  --input_type multifastq "
+        "  --nproc {threads} "                                                        
+        "  --bowtie2db {METAPHLAN_BTDB} "
+        "  --bowtie2out metaphlan_profile/{wildcards.prefix}.trimmed.decont.bt2.txt "
+        "  -o {output.tsv};  "
+        "metaphlan.py  metaphlan_profile/{wildcards.prefix}.trimmed.decont.bt2.txt "
+        "  --input_type bowtie2out "
+        "  --nproc 2 "                                                               
+        "  -t reads_map "                                                            
+        "  -o {output.mapfile} "
+
+rule metaphlan2:
+    input:
+        r1="decont_fastqs/{prefix}.trimmed.decont_1.fastq.gz",
+        r2="decont_fastqs/{prefix}.trimmed.decont_2.fastq.gz"
+    output:
+        tsv="metaphlan2_profile/{prefix}.trimmed.decont.metaphlan2.tsv",
+    message: "Running Metaphlan [{wildcards.prefix}]"
+    threads: 8
+    params: resource="h_rt=48:00:00,mem_free=10G"
+    shell:
+        "{METAPHLAN2} {input.r1},{input.r2} "
+        " --mpa_pkl {METAPHLAN2_PKL} "
+        " --bowtie2db {METAPHLAN2_DB} "
+        " --bowtie2out metaphlan2_profile/{wildcards.prefix}.trimmed.decont.metaphlan2.bz2"
+        " --nproc {threads} "
+        " --input_type fastq "
+        " > {output.tsv} "
+
+rule split_tables:
+    input:
+        "{method}_profile/{prefix}.trimmed.decont.{method}.tsv"
+    output:
+        ##dynamic("split_table_{method}/{prefix}.trimmed.decont.{method}.{tax}")
+        touch("split_table_{method}/{prefix}.trimmed.decont.{method}.SUCCESS")
+    message: "Splitting tables ({wildcards.method}) [{wildcards.prefix}]"
+    threads: 1
+    params: resource="h_rt=2:00:00,mem_free=5G"
+    shell:
+        "~lich/scripts/split_metaphlan_table.sh {input} split_table_{wildcards.method}/{wildcards.prefix}.trimmed.decont.{wildcards.method}"
+
+rule merge_tables:
+    input:
+        expand("split_table_{method}/{prefix}.trimmed.decont.{method}.SUCCESS",
+               method=methods, prefix=[k for k in config['SAMPLES']])
+    output:
+        touch("pipeline.SUCCESS")
+    message: "Merging tables"
+    threads: 1
+    params: resource="h_rt=2:00:00,mem_free=20G"
+    run:
+        for m in methods:
+                IDS = glob.glob("split_table_"+m+"/*.table.?")
+                tax = set([x.split(".")[-1] for x in IDS ])
+                output_dir = "merged_table_" + m + "/"
+                if not os.path.exists(output_dir):
+                        os.mkdir(output_dir)
+                for t in tax:
+                        shell("~lich/scripts/misc-scripts/merge_tables.py -p '[A-Z]+[0-9]+' split_table_%s/*table.%s -o %s/%s.%s.profile_merged.tsv" %(m, t, output_dir, t, m))
+
+       
+        
