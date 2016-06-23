@@ -35,6 +35,7 @@ trim_famas = {
     exec """
       $FAMAS -i $input1 -j $input2 
              -o $output1 -p $output2
+             --no-order-check
     ""","trim"
   }
 }

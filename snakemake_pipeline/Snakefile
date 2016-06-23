@@ -83,7 +83,7 @@ rule trimming:
     threads: 1
     params: resource="h_rt=48:00:00,mem_free=10G"
     message: "Trimming fastq files [{wildcards.prefix}]"
-    shell: "{FAMAS} -i {input.r1} -j  {input.r2} -o {output.r1} -p {output.r2}"
+    shell: "{FAMAS} -i {input.r1} -j  {input.r2} -o {output.r1} -p {output.r2} --no-order-check"
 
 rule decont:
     input:
