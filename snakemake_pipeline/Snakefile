@@ -17,24 +17,34 @@ import glob
 
 ## generate a config file using script "create_config.sh"
 configfile: "conf.yaml"
+
+assert 'SAMPLES' in config
+assert 'TOOLS' in config
+assert 'DBS' in config
+assert 'PROFILERS' in config
+
 ## profilers to run
-methods=['kraken', 'metaphlan', 'metaphlan2']
+methods=[]
+for k in config['PROFILERS']:
+    if int(config['PROFILERS'][k]) == 1:
+        methods.append(k)
 
 ########### tools & DBs: ########
 ## Default tools
-FAMAS = 'famas'
-BWA = '/mnt/software/stow/bwa-0.7.10/bin/bwa'
-METAPHLAN2 = '/mnt/projects/lich/dream_challenge/tmp/biobakery-metaphlan2-3d22a72b109b/metaphlan2.py'
+FAMAS           = config['TOOLS']['FAMAS']
+DECONT          = config['TOOLS']['DECONT']
+BWA             = config['TOOLS']['BWA']
+METAPHLAN2      = config['TOOLS']['METAPHLAN2']
+METAPHLAN       = config['TOOLS']['METAPHLAN']
 
 ## Default databases
-DECONT_GENOME = '/mnt/genomeDB/genomeIndices/hg19/bwa_index/nucleotide/hg19.fa'
-METAPHLAN_BTDB = "/mnt/genomeDB/misc/softwareDB/metaphlan/huttenhower.sph.harvard.edu/metaphlan/bowtie2db/mpa"
-METAPHLAN2_PKL = "/mnt/projects/lich/dream_challenge/tmp/biobakery-metaphlan2-3d22a72b109b/db_v20/mpa_v20_m200.pkl"
-METAPHLAN2_DB = "/mnt/projects/lich/dream_challenge/tmp/biobakery-metaphlan2-3d22a72b109b/db_v20/mpa_v20_m200"
-KRAKEN_DB = "/mnt/genomeDB/misc/softwareDB/kraken/minikraken_20141208/"
-#################################
+DECONT_GENOME    = config['DBS']['DECONT_GENOME'] 
+METAPHLAN_BTDB	 = config['DBS']['METAPHLAN_BTDB'] 
+METAPHLAN2_PKL	 = config['DBS']['METAPHLAN2_PKL'] 
+METAPHLAN2_DB	 = config['DBS']['METAPHLAN2_DB'] 
+KRAKEN_DB	 = config['DBS']['KRAKEN_DB'] 
 
-assert 'SAMPLES' in config
+#################################
 
 rule final:
     input:"pipeline.SUCCESS"
@@ -80,13 +90,14 @@ rule decont:
         r1="trimmed_fastqs/{prefix}.trimmed.R1.fastq.gz",
         r2="trimmed_fastqs/{prefix}.trimmed.R2.fastq.gz"
     output:
-        r1="decont_fastqs/{prefix}.trimmed.decont_1.fastq.gz",
-        r2="decont_fastqs/{prefix}.trimmed.decont_2.fastq.gz"
+        r1=temp("decont_fastqs/{prefix}.trimmed.decont_1.fastq.gz"),
+        r2=temp("decont_fastqs/{prefix}.trimmed.decont_2.fastq.gz"),
+        bam=temp("decont_fastqs/{prefix}.trimmed.decont.bam")
     message: "Running decont on [{wildcards.prefix}]"
     threads: 8
     params: resource="h_rt=48:00:00,mem_free=15G"
     shell:
-        "decont.py -i {input.r1} {input.r2} "
+        "{DECONT} -i {input.r1} {input.r2} "
         "  -t {threads} " 
         "  -r {DECONT_GENOME} "
         "  -o decont_fastqs/{wildcards.prefix}.trimmed.decont "
@@ -130,13 +141,13 @@ rule metaphlan:
     params: resource="h_rt=48:00:00,mem_free=10G"
     shell:
         "zcat {input.r1} {input.r2} | "
-        "  metaphlan.py "
+        "  {METAPHLAN} "
         "  --input_type multifastq "
         "  --nproc {threads} "                                                        
         "  --bowtie2db {METAPHLAN_BTDB} "
         "  --bowtie2out metaphlan_profile/{wildcards.prefix}.trimmed.decont.bt2.txt "
         "  -o {output.tsv};  "
-        "metaphlan.py  metaphlan_profile/{wildcards.prefix}.trimmed.decont.bt2.txt "
+        "{METAPHLAN}  metaphlan_profile/{wildcards.prefix}.trimmed.decont.bt2.txt "
         "  --input_type bowtie2out "
         "  --nproc 2 "                                                               
         "  -t reads_map "                                                            
