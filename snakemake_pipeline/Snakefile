@@ -90,9 +90,9 @@ rule decont:
         r1="trimmed_fastqs/{prefix}.trimmed.R1.fastq.gz",
         r2="trimmed_fastqs/{prefix}.trimmed.R2.fastq.gz"
     output:
-        r1=temp("decont_fastqs/{prefix}.trimmed.decont_1.fastq.gz"),
-        r2=temp("decont_fastqs/{prefix}.trimmed.decont_2.fastq.gz"),
-        bam=temp("decont_fastqs/{prefix}.trimmed.decont.bam")
+        r1="decont_fastqs/{prefix}.trimmed.decont_1.fastq.gz",
+        r2="decont_fastqs/{prefix}.trimmed.decont_2.fastq.gz",
+        bam="decont_fastqs/{prefix}.trimmed.decont.bam"
     message: "Running decont on [{wildcards.prefix}]"
     threads: 8
     params: resource="h_rt=48:00:00,mem_free=15G"

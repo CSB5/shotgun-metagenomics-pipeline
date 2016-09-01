@@ -9,7 +9,7 @@ TOOLS:
   BWA: /mnt/software/stow/bwa-0.7.10/bin/bwa
   METAPHLAN2: /mnt/projects/lich/dream_challenge/tmp/biobakery-metaphlan2-3d22a72b109b/metaphlan2.py
   METAPHLAN: /mnt/software/stow/metaphlan-2f1b17a1f4e9/bin/metaphlan.py
-  DECONT: /mnt/software/stow/decont-0.3/bin/decont.py
+  DECONT: /mnt/software/stow/decont-0.4/bin/decont.py
 EOT
 
 ## default DBs
