@@ -9,4 +9,4 @@ else
 fi
 
 
-/mnt/projects/rpd/apps.testing/miniconda3/envs/snakemake-3.7.1/bin/snakemake -p -T --snakefile ~lich/projects_backup/metagenomics_pipeline/snakemake_pipeline/Snakefile -j $TOTAL_THREADS --drmaa ' -pe OpenMP {threads} -l {params.resource} -V -b y -cwd -w n' $ARGS
+/mnt/projects/rpd/apps.testing/miniconda3/envs/snakemake-3.7.1/bin/snakemake --latency-wait 100 -p -T --snakefile ~lich/projects_backup/metagenomics_pipeline/snakemake_pipeline/Snakefile -j $TOTAL_THREADS --drmaa ' -pe OpenMP {threads} -l {params.resource} -V -b y -cwd -w n'  $ARGS

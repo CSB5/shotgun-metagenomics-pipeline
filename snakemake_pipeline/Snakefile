@@ -34,8 +34,10 @@ for k in config['PROFILERS']:
 FAMAS           = config['TOOLS']['FAMAS']
 DECONT          = config['TOOLS']['DECONT']
 BWA             = config['TOOLS']['BWA']
-METAPHLAN2      = config['TOOLS']['METAPHLAN2']
+METAPHLAN2_PATH      = config['TOOLS']['METAPHLAN2_PATH']
 METAPHLAN       = config['TOOLS']['METAPHLAN']
+HUMANN2_PATH    = config['TOOLS']['HUMANN2_PATH']
+DIAMOND_PATH    = config['TOOLS']['DIAMOND_PATH']
 
 ## Default databases
 DECONT_GENOME    = config['DBS']['DECONT_GENOME'] 
@@ -47,8 +49,9 @@ KRAKEN_DB	 = config['DBS']['KRAKEN_DB']
 #################################
 
 rule final:
-    input:"pipeline.SUCCESS"
+    input:"tax_profile.SUCCESS","pathway_profile.SUCCESS"
 
+    
 def get_dir_for_prefix(wildcards):
 	return config['SAMPLES'][wildcards.prefix]
      
@@ -59,7 +62,7 @@ rule merge_fastq_r1:
      	temp("merged_fastqs/{prefix}_R1.fastq.gz")
     message: "Merging fastq (R1) per sample dir [{wildcards.prefix}]"
     threads: 1
-    params: resource="h_rt=4:00:00,mem_free=5G"
+    params: resource="h_rt=4:00:00,mem_free=5G -q ionode.q"
     shell:
         "cat `ls {input}/*R1*gz | sort` > {output}"
 
@@ -69,7 +72,7 @@ rule merge_fastq_r2:
      	temp("merged_fastqs/{prefix}_R2.fastq.gz")
     message: "Merging fastq (R2) per sample dir [{wildcards.prefix}]"
     threads: 1
-    params: resource="h_rt=4:00:00,mem_free=5G"
+    params: resource="h_rt=4:00:00,mem_free=5G -q ionode.q"
     shell:
         "cat `ls {input}/*R2*gz | sort` > {output}"
 
@@ -109,7 +112,8 @@ rule kraken:
         r2="decont_fastqs/{prefix}.trimmed.decont_2.fastq.gz"
     output:
         tsv="kraken_profile/{prefix}.trimmed.decont.kraken.tsv",
-        out="kraken_profile/{prefix}.trimmed.decont.kraken.out"
+        map="kraken_profile/{prefix}.trimmed.decont.kraken.map.gz",
+        out="kraken_profile/{prefix}.trimmed.decont.kraken.out.gz"
     message: "Running Kraken [{wildcards.prefix}]"
     threads: 8
     params: resource="h_rt=48:00:00,mem_free=20G"
@@ -120,22 +124,25 @@ rule kraken:
         "  --paired "      
         "  --threads {threads} "
         "  {input.r1} {input.r2} "
-        "  > {output.out}; "   
+        "  > kraken_profile/{wildcards.prefix}.trimmed.decont.kraken.out; "   
         "kraken-translate --db {KRAKEN_DB} "
         "  --mpa-format "
-        "  {output.out} "
+        "  kraken_profile/{wildcards.prefix}.trimmed.decont.kraken.out "
         "  > kraken_profile/{wildcards.prefix}.trimmed.decont.kraken.map; "
         "kraken-mpa-report --db {KRAKEN_DB} "
-        "  {output.out} "
-        "  > {output.tsv}  "
-
+        "  kraken_profile/{wildcards.prefix}.trimmed.decont.kraken.out "
+        "  > {output.tsv};  "
+        "gzip kraken_profile/{wildcards.prefix}.trimmed.decont.kraken.out"
+        "     kraken_profile/{wildcards.prefix}.trimmed.decont.kraken.map"
+        
 rule metaphlan:
     input:
         r1="decont_fastqs/{prefix}.trimmed.decont_1.fastq.gz",
         r2="decont_fastqs/{prefix}.trimmed.decont_2.fastq.gz"
     output:
         tsv="metaphlan_profile/{prefix}.trimmed.decont.metaphlan.tsv",
-        mapfile="metaphlan_profile/{prefix}.trimmed.decont.metaphlan.map"
+        map="metaphlan_profile/{prefix}.trimmed.decont.metaphlan.map.gz",
+        bt2="metaphlan_profile/{prefix}.trimmed.decont.bt2.txt.gz"
     message: "Running Metaphlan [{wildcards.prefix}]"
     threads: 8
     params: resource="h_rt=48:00:00,mem_free=10G"
@@ -145,50 +152,108 @@ rule metaphlan:
         "  --input_type multifastq "
         "  --nproc {threads} "                                                        
         "  --bowtie2db {METAPHLAN_BTDB} "
-        "  --bowtie2out metaphlan_profile/{wildcards.prefix}.trimmed.decont.bt2.txt "
+        "  --bowtie2out metaphlan_profile/{wildcards.prefix}.trimmed.decont.bt2.txt"
         "  -o {output.tsv};  "
-        "{METAPHLAN}  metaphlan_profile/{wildcards.prefix}.trimmed.decont.bt2.txt "
+        "{METAPHLAN} metaphlan_profile/{wildcards.prefix}.trimmed.decont.bt2.txt "
         "  --input_type bowtie2out "
         "  --nproc 2 "                                                               
         "  -t reads_map "                                                            
-        "  -o {output.mapfile} "
+        "  -o metaphlan_profile/{wildcards.prefix}.trimmed.decont.metaphlan.map; "
+        "gzip metaphlan_profile/{wildcards.prefix}.trimmed.decont.metaphlan.map"
+        "     metaphlan_profile/{wildcards.prefix}.trimmed.decont.bt2.txt "
 
 rule metaphlan2:
     input:
         r1="decont_fastqs/{prefix}.trimmed.decont_1.fastq.gz",
         r2="decont_fastqs/{prefix}.trimmed.decont_2.fastq.gz"
     output:
-        tsv="metaphlan2_profile/{prefix}.trimmed.decont.metaphlan2.tsv",
+        tsv="metaphlan2_profile/{prefix}.trimmed.decont.metaphlan2.tsv"
     message: "Running Metaphlan [{wildcards.prefix}]"
     threads: 8
     params: resource="h_rt=48:00:00,mem_free=10G"
     shell:
-        "{METAPHLAN2} {input.r1},{input.r2} "
+        "{METAPHLAN2_PATH}/metaphlan2.py {input.r1},{input.r2} "
         " --mpa_pkl {METAPHLAN2_PKL} "
         " --bowtie2db {METAPHLAN2_DB} "
         " --bowtie2out metaphlan2_profile/{wildcards.prefix}.trimmed.decont.metaphlan2.bz2"
         " --nproc {threads} "
         " --input_type fastq "
-        " > {output.tsv} "
+        " > {output.tsv} " 
 
+rule humann2:
+    input:
+        r1="decont_fastqs/{prefix}.trimmed.decont_1.fastq.gz",
+        r2="decont_fastqs/{prefix}.trimmed.decont_2.fastq.gz"
+    output:
+        gf="humann2_profile/{prefix}.trimmed.decont.humann2_genefamilies.tsv",
+        gfn="humann2_profile/{prefix}.trimmed.decont.humann2_genefamilies.relab.tsv",
+        pw="humann2_profile/{prefix}.trimmed.decont.humann2_pathabundance.tsv",
+        pwn="humann2_profile/{prefix}.trimmed.decont.humann2_pathabundance.relab.tsv",
+        cov="humann2_profile/{prefix}.trimmed.decont.humann2_pathcoverage.tsv",
+        flag="humann2_profile/{prefix}.trimmed.decont.humann2.SUCCESS"
+    message: "Running HUMAnN2 [{wildcards.prefix}]"
+    threads: 8
+    params: resource="h_rt=48:00:00,mem_free=10G"
+    shell:
+        "{HUMANN2_PATH}/humann2 -i {input.r1},{input.r2}"
+        " -o humann2_profile "
+        " --metaphlan {METAPHLAN2_PATH} "
+        " --diamond {DIAMOND_PATH}"
+        " --input-format fastq.multi"
+        " --output-basename {wildcards.prefix}.trimmed.decont.humann2"
+        " --remove-temp-output"
+        " --threads 8;"
+        "{HUMANN2_PATH}/humann2_renorm_table --input {output.gf}"
+        " --output {output.gfn}"
+        " --units relab;"
+        "{HUMANN2_PATH}/humann2_renorm_table --input {output.pw}"
+        " --output {output.pwn}"
+        " --units relab;"
+        "touch {output.flag}"
+
+rule merge_humann2:
+    input:
+        expand("humann2_profile/{prefix}.trimmed.decont.humann2.SUCCESS",
+                prefix=[k for k in config['SAMPLES']])
+    output:
+        gf="merged_table_humann2/genefamily.tsv",
+        pw="merged_table_humann2/pathabundance.tsv",
+        cov="merged_table_humann2/pathcoverage.tsv",
+        flag="pathway_profile.SUCCESS"
+    message: "Merging HUMAnN2"
+    threads: 1
+    params: resource="h_rt=48:00:00,mem_free=40G"
+    shell:
+         "{HUMANN2_PATH}humann2_join_tables --input humann2_profile "
+         " --output {output.gf}"
+         " --file_name genefamilies.relab;"
+         "{HUMANN2_PATH}humann2_join_tables --input humann2_profile "
+         " --output {output.pw}"
+         " --file_name pathabundance.relab;"
+         "{HUMANN2_PATH}humann2_join_tables --input humann2_profile "
+         " --output {output.cov}"
+         " --file_name pathcoverage;"
+         "touch {output.flag}"
+    
 rule split_tables:
     input:
         "{method}_profile/{prefix}.trimmed.decont.{method}.tsv"
     output:
         ##dynamic("split_table_{method}/{prefix}.trimmed.decont.{method}.{tax}")
-        touch("split_table_{method}/{prefix}.trimmed.decont.{method}.SUCCESS")
+        "split_table_{method}/{prefix}.trimmed.decont.{method}.SUCCESS"
     message: "Splitting tables ({wildcards.method}) [{wildcards.prefix}]"
     threads: 1
     params: resource="h_rt=2:00:00,mem_free=5G"
     shell:
-        "~lich/scripts/split_metaphlan_table.sh {input} split_table_{wildcards.method}/{wildcards.prefix}.trimmed.decont.{wildcards.method}"
+        "~lich/scripts/split_metaphlan_table.sh {input} split_table_{wildcards.method}/{wildcards.prefix}.trimmed.decont.{wildcards.method} && "
+        "touch {output}"
 
 rule merge_tables:
     input:
         expand("split_table_{method}/{prefix}.trimmed.decont.{method}.SUCCESS",
                method=methods, prefix=[k for k in config['SAMPLES']])
     output:
-        touch("pipeline.SUCCESS")
+        touch("tax_profile.SUCCESS")
     message: "Merging tables"
     threads: 1
     params: resource="h_rt=2:00:00,mem_free=20G"
@@ -202,5 +267,4 @@ rule merge_tables:
                 for t in tax:
                         shell("~lich/scripts/misc-scripts/merge_tables.py -p '[A-Z]+[0-9]+' split_table_%s/*table.%s -o %s/%s.%s.profile_merged.tsv" %(m, t, output_dir, t, m))
 
-       
-        
+
