@@ -10,8 +10,8 @@ TOOLS:
   METAPHLAN2_PATH: /mnt/software/unstowable/biobakery-metaphlan2-3d22a72b109b/
   METAPHLAN: /mnt/software/stow/metaphlan-2f1b17a1f4e9/bin/metaphlan.py
   DECONT: /mnt/software/stow/decont-0.4/bin/decont.py
-  HUMANN2_PATH:  ~lich/.local/bin/
-  DIAMOND_PATH: ~lich/.local/bin/
+  HUMANN2_PATH:  /mnt/software/unstowable/anaconda/envs/py3k/bin/
+  DIAMOND_PATH: /mnt/software/unstowable/anaconda/envs/py3k/lib/python3.4/site-packages/humann2/
 EOT
 
 ## default DBs
