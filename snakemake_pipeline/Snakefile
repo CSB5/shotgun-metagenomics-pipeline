@@ -45,6 +45,8 @@ METAPHLAN_BTDB	 = config['DBS']['METAPHLAN_BTDB']
 METAPHLAN2_PKL	 = config['DBS']['METAPHLAN2_PKL'] 
 METAPHLAN2_DB	 = config['DBS']['METAPHLAN2_DB'] 
 KRAKEN_DB	 = config['DBS']['KRAKEN_DB'] 
+HUMANN2_NUCLEOTIDE    = config['TOOLS']['HUMANN2_NUCLEOTIDE']
+HUMANN2_PROTEIN    = config['TOOLS']['HUMANN2_PROTEIN']
 
 #################################
 
@@ -176,9 +178,10 @@ rule metaphlan2:
         " --mpa_pkl {METAPHLAN2_PKL} "
         " --bowtie2db {METAPHLAN2_DB} "
         " --bowtie2out metaphlan2_profile/{wildcards.prefix}.trimmed.decont.metaphlan2.bz2"
+        "-s metaphlan2_profile/{wildcards.prefix}.trimmed.decont.metaphlan2.sam.bz2"
         " --nproc {threads} "
-        " --input_type fastq "
-        " > {output.tsv} " 
+        " --input_type multifastq "
+        " > {output.tsv} "
 
 rule humann2:
     input:
@@ -193,7 +196,7 @@ rule humann2:
         flag="humann2_profile/{prefix}.trimmed.decont.humann2.SUCCESS"
     message: "Running HUMAnN2 [{wildcards.prefix}]"
     threads: 8
-    params: resource="h_rt=48:00:00,mem_free=10G"
+    params: resource="h_rt=48:00:00,mem_free=50G"
     shell:
         "{HUMANN2_PATH}/humann2 -i {input.r1},{input.r2}"
         " -o humann2_profile "
@@ -202,6 +205,8 @@ rule humann2:
         " --input-format fastq.multi"
         " --output-basename {wildcards.prefix}.trimmed.decont.humann2"
         " --remove-temp-output"
+        " --nucleotide-database {HUMANN2_NUCLEOTIDE}"
+        " --protein-database {HUMANN2_PROTEIN}"
         " --threads 8;"
         "{HUMANN2_PATH}/humann2_renorm_table --input {output.gf}"
         " --output {output.gfn}"

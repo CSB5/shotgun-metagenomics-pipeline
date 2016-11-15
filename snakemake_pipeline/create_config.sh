@@ -12,6 +12,8 @@ TOOLS:
   DECONT: /mnt/software/stow/decont-0.4/bin/decont.py
   HUMANN2_PATH:  /mnt/software/unstowable/anaconda/envs/py3k/bin/
   DIAMOND_PATH: /mnt/software/unstowable/anaconda/envs/py3k/lib/python3.4/site-packages/humann2/
+  HUMANN2_NUCLEOTIDE: /mnt/genomeDB/misc/softwareDB/humann2/chocophlan/ 
+  HUMANN2_PROTEIN: /mnt/genomeDB/misc/softwareDB/humann2/uniref/
 EOT
 
 ## default DBs
