@@ -1,9 +1,14 @@
 Shotgun Metagenomics Pipeline
 ============
+Note:
+------------
+Please use the [latest version](https://github.com/gis-rpd/pipelines/tree/2017-06/metagenomics/shotgun-metagenomics) of the Snakemake pipeline maintained by [GIS RPD team](https://github.com/gis-rpd/pipelines).
+
 Description:
-----------
-This pipeline is based on Bpipe (https://github.com/ssadedin/bpipe), and is now routinely used by the group to process 
+------------
+This pipeline is based on [Bpipe](https://github.com/ssadedin/bpipe), and is now routinely used by the group to process 
 (pair-end) shotgun metagenomics samples.
+
 Requirements:
 -----------
  * Bpipe 0.9.9 beta 1 (sge_fixes branch) or Snakemake 3.7.1
