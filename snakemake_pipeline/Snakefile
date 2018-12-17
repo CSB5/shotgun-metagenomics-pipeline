@@ -29,6 +29,12 @@ for k in config['PROFILERS']:
     if int(config['PROFILERS'][k]) == 1:
         methods.append(k)
 
+if 'humann2' in methods:
+    success_condition = ["tax_profile.SUCCESS","pathway_profile.SUCCESS"]
+else:
+    success_condition = ["tax_profile.SUCCESS"]
+
+        
 ########### tools & DBs: ########
 ## Default tools
 FAMAS           = config['TOOLS']['FAMAS']
@@ -51,7 +57,7 @@ HUMANN2_PROTEIN    = config['TOOLS']['HUMANN2_PROTEIN']
 #################################
 
 rule final:
-    input:"tax_profile.SUCCESS","pathway_profile.SUCCESS"
+    input: success_condition
 
     
 def get_dir_for_prefix(wildcards):
